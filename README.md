@@ -2,7 +2,7 @@
 
 A configurable proximity sensor system built with ESP32-C6, featuring real-time web-based monitoring and configuration.
 
-![Proximity Sensor Assembly](images/ProximitySensorAssembly.PNG)
+![Proximity Sensor Assembly](Images/ProximitySensorAssembly.PNG)
 
 ## Features
 
