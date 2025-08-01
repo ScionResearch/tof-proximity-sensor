@@ -7,6 +7,7 @@
 
 // Hardware pin definitions
 #define PIN_LED_DATA            8   // LED data pin on ESP32-C6-Mini DevKit is 8, on ToF sensor board is 0
+#define PIN_FACTORY_DEFAULT     12  // Factory reset pin on ESP32-C6-Mini DevKit is 12, on ToF sensor board is 17
 #define PIN_OUT_1               18
 #define PIN_OUT_2               19
 #define PIN_TOF_SHUTDOWN        20

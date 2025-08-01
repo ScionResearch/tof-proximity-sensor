@@ -205,7 +205,7 @@ lib_deps =
 
 #### **Sensor Shows "Out of range"**
 
-- Normal when no object is within detection range (40mm-4000mm)
+- Normal when no object is within detection range (0mm-2000mm)
 - Check sensor alignment and cleanliness
 - Verify object is within sensor field of view (27°)
 
@@ -221,15 +221,6 @@ lib_deps =
 - Power cycle the device (automatic recovery attempts every 5 seconds)
 - Check I2C connections to VL53L1X sensor
 - Verify sensor is not obstructed or damaged
-
-### **Factory Reset**
-
-If you need to reset to factory defaults:
-
-1. Power off the device
-2. Hold the reset button while powering on
-3. Device will restart with default settings
-4. Default admin password will be reset to `admin`
 
 ## Multi-Sensor Deployment
 
