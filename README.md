@@ -112,7 +112,7 @@ A configurable proximity sensor system built with ESP32-C6, featuring real-time 
 - **Enable/Disable:** Individual control for each output
   - Unchecked = Output disabled (always OFF)
   - Checked = Output follows detection logic
-- **Min/Max Distance:** Set detection range (0-4000mm)
+- **Min/Max Distance:** Set detection range (0-2000mm)
 - **Hysteresis:** Prevent output chatter (0-500mm)
 - **Polarity:** 
   - "Active In Range" = Output ON when object is between Min-Max
@@ -137,23 +137,23 @@ A configurable proximity sensor system built with ESP32-C6, featuring real-time 
 
 ### **Sensor Performance**
 
-- **Range:** 40mm to 4000mm (typical)
+- **Range:** 0mm to 2000mm (typical)
 - **Accuracy:** ±3% of distance
 - **Update Rate:** Up to 20Hz (50ms timing budget)
 - **Field of View:** 27° (full width)
 
 ### **System Specifications**
 
+- **Supply Voltage:** +12V-24V DC 100mA max
 - **Microcontroller:** ESP32-C6 (160MHz, 320KB RAM, 4MB Flash)
 - **WiFi:** 802.11 b/g/n (2.4GHz)
-- **Power:** 5V via USB or external supply
 - **Operating Temperature:** -10°C to +60°C
 
 ### **Output Specifications**
 
-- **Digital Outputs:** 2 channels
-- **Logic Level:** 3.3V CMOS
-- **Current Capacity:** 20mA per output
+- **Digital Outputs:** 2 channels open drain
+- **Max Voltage at Outputs:** +33V DC
+- **Current Capacity:** 100mA per output source capacity
 - **Response Time:** <100ms (including hysteresis)
 
 ## Development Environment
