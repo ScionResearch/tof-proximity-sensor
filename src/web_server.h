@@ -4,12 +4,14 @@
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
+#include <DNSServer.h>
 #include "config_manager.h"
 #include "sensor_manager.h"
 
 class WebServerManager {
 private:
     AsyncWebServer* server;
+    DNSServer* dns_server;
     ConfigManager* config_manager;
     SensorManager* sensor_manager;
     

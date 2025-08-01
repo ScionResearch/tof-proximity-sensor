@@ -4,6 +4,7 @@ WebServerManager::WebServerManager(ConfigManager* config_mgr, SensorManager* sen
     config_manager = config_mgr;
     sensor_manager = sensor_mgr;
     server = new AsyncWebServer(80);
+    dns_server = new DNSServer();
     session_count = 0;
     
     // Initialize session arrays
@@ -15,12 +16,43 @@ WebServerManager::WebServerManager(ConfigManager* config_mgr, SensorManager* sen
 
 WebServerManager::~WebServerManager() {
     delete server;
+    delete dns_server;
 }
 
 bool WebServerManager::initialize() {
     // Set up basic routes
     server->on("/", HTTP_GET, [this](AsyncWebServerRequest* request) {
         handleRoot(request);
+    });
+    
+    // iOS Captive Portal Detection routes
+    server->on("/hotspot-detect.html", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        request->redirect("/");
+    });
+    
+    server->on("/library/test/success.html", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        request->redirect("/");
+    });
+    
+    server->on("/captive", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        request->redirect("/");
+    });
+    
+    server->on("/generate_204", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        request->send(204);
+    });
+    
+    server->on("/fwlink", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        request->redirect("/");
+    });
+    
+    // Catch-all route for any other requests - redirect to main page
+    server->onNotFound([this](AsyncWebServerRequest* request) {
+        if (request->method() == HTTP_GET) {
+            request->redirect("/");
+        } else {
+            request->send(404, "text/plain", "Not Found");
+        }
     });
     
     server->on("/api/status", HTTP_GET, [this](AsyncWebServerRequest* request) {
@@ -62,16 +94,26 @@ bool WebServerManager::initialize() {
 }
 
 bool WebServerManager::startAccessPoint() {
-    WiFiConfig wifi_config = config_manager->getWiFiConfig();
-    
     // Generate unique SSID based on MAC address
     uint8_t mac[6];
     WiFi.macAddress(mac);
-    char unique_ssid[20];
-    snprintf(unique_ssid, sizeof(unique_ssid), "ToF-Prox-%02X%02X%02X", mac[3], mac[4], mac[5]);
+    String unique_ssid = "ToF-Prox-" + String(mac[3], HEX) + String(mac[4], HEX) + String(mac[5], HEX);
+    unique_ssid.toUpperCase();
     
+    WiFiConfig wifi_config = config_manager->getWiFiConfig();
+    
+    // Configure AP with specific settings for better iOS compatibility
     WiFi.mode(WIFI_AP);
-    bool success = WiFi.softAP(unique_ssid, wifi_config.ap_password.c_str());
+    WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
+    
+    // Start AP with specific settings: channel 1, no SSID hidden, max 4 connections
+    bool success = WiFi.softAP(unique_ssid.c_str(), wifi_config.ap_password, 1, 0, 4);
+    
+    if (success) {
+        // Additional iOS compatibility settings
+        delay(100); // Small delay for AP to stabilize
+        WiFi.softAPsetHostname("proximity-sensor");
+    }
     
     if (success) {
         IPAddress ip = WiFi.softAPIP();
@@ -79,11 +121,16 @@ bool WebServerManager::startAccessPoint() {
         Serial.println(unique_ssid);
         Serial.print("IP address: ");
         Serial.println(ip);
+        
+        // Start DNS server for captive portal
+        dns_server->start(53, "*", ip);
+        Serial.println("DNS server started for captive portal");
+        
         return true;
-    } else {
-        Serial.println("Failed to start Access Point");
-        return false;
     }
+    
+    Serial.println("Failed to start Access Point");
+    return false;
 }
 
 void WebServerManager::stopAccessPoint() {
@@ -92,7 +139,8 @@ void WebServerManager::stopAccessPoint() {
 }
 
 void WebServerManager::handleClient() {
-    // AsyncWebServer handles clients automatically
+    // Process DNS requests for captive portal
+    dns_server->processNextRequest();
 }
 
 String WebServerManager::generateSessionToken() {
@@ -140,10 +188,23 @@ bool WebServerManager::isAuthenticated(AsyncWebServerRequest* request) {
 
 void WebServerManager::handleRoot(AsyncWebServerRequest* request) {
     if (!isAuthenticated(request)) {
-        request->redirect("/login");
+        handleLogin(request);
         return;
     }
     
+    String html = generateMainPage();
+    AsyncWebServerResponse* response = request->beginResponse(200, "text/html", html);
+    
+    // Add iOS-friendly headers
+    response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    response->addHeader("Pragma", "no-cache");
+    response->addHeader("Expires", "0");
+    response->addHeader("Connection", "close");
+    
+    request->send(response);
+}
+
+String WebServerManager::generateMainPage() {
     String html = "<!DOCTYPE html>";
     html += "<html><head><title>Proximity Sensor</title>";
     html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
@@ -180,14 +241,26 @@ void WebServerManager::handleRoot(AsyncWebServerRequest* request) {
     html += "<h3>Output Configuration</h3>";
     html += "<form id='config-form'>";
     html += "<div class='output-config'>";
-    html += "<h4>Output 1</h4>";
+    html += "<div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; padding: 0 5px;'>";
+    html += "<h4 style='margin: 0; min-width: 120px;'>Output 1</h4>";
+    html += "<div style='display: flex; align-items: center; gap: 40px; margin-left: auto; padding-right: 10px;'>";
+    html += "<span style='font-weight: normal;'>Enable</span>";
+    html += "<input type='checkbox' id='output1_enabled' name='output1_enabled' style='margin: 0; transform: scale(1.2);'>";
+    html += "</div>";
+    html += "</div>";
     html += "<label>Min Distance (mm): <input type='number' id='output1_min' name='output1_min' min='0' max='4000'></label>";
     html += "<label>Max Distance (mm): <input type='number' id='output1_max' name='output1_max' min='0' max='4000'></label>";
     html += "<label>Hysteresis (mm): <input type='number' id='output1_hysteresis' name='output1_hysteresis' min='0' max='500'></label>";
     html += "<label>Polarity: <select id='output1_polarity' name='output1_polarity'><option value='in_range'>Active In Range</option><option value='out_range'>Active Out of Range</option></select></label>";
     html += "</div>";
     html += "<div class='output-config'>";
-    html += "<h4>Output 2</h4>";
+    html += "<div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; padding: 0 5px;'>";
+    html += "<h4 style='margin: 0; min-width: 120px;'>Output 2</h4>";
+    html += "<div style='display: flex; align-items: center; gap: 40px; margin-left: auto; padding-right: 10px;'>";
+    html += "<span style='font-weight: normal;'>Enable</span>";
+    html += "<input type='checkbox' id='output2_enabled' name='output2_enabled' style='margin: 0; transform: scale(1.2);'>";
+    html += "</div>";
+    html += "</div>";
     html += "<label>Min Distance (mm): <input type='number' id='output2_min' name='output2_min' min='0' max='4000'></label>";
     html += "<label>Max Distance (mm): <input type='number' id='output2_max' name='output2_max' min='0' max='4000'></label>";
     html += "<label>Hysteresis (mm): <input type='number' id='output2_hysteresis' name='output2_hysteresis' min='0' max='500'></label>";
@@ -239,13 +312,15 @@ void WebServerManager::handleRoot(AsyncWebServerRequest* request) {
     html += "function loadConfig() {";
     html += "fetch('/api/config').then(response => response.json()).then(data => {";
     html += "const configHtml = '<p><strong>Device:</strong> ' + data.device_name + '</p>' +";
-    html += "'<p><strong>Output 1:</strong> ' + data.output1.min + '-' + data.output1.max + 'mm, Hyst: ' + data.output1.hysteresis + 'mm (' + (data.output1.active_in_range ? 'In Range' : 'Out of Range') + ')</p>' +";
-    html += "'<p><strong>Output 2:</strong> ' + data.output2.min + '-' + data.output2.max + 'mm, Hyst: ' + data.output2.hysteresis + 'mm (' + (data.output2.active_in_range ? 'In Range' : 'Out of Range') + ')</p>';";
+    html += "'<p><strong>Output 1:</strong> ' + (data.output1.enabled ? 'Enabled' : 'Disabled') + ' - ' + data.output1.min + '-' + data.output1.max + 'mm, Hyst: ' + data.output1.hysteresis + 'mm (' + (data.output1.active_in_range ? 'In Range' : 'Out of Range') + ')</p>' +";
+    html += "'<p><strong>Output 2:</strong> ' + (data.output2.enabled ? 'Enabled' : 'Disabled') + ' - ' + data.output2.min + '-' + data.output2.max + 'mm, Hyst: ' + data.output2.hysteresis + 'mm (' + (data.output2.active_in_range ? 'In Range' : 'Out of Range') + ')</p>';";
     html += "document.getElementById('config-display').innerHTML = configHtml;";
+    html += "document.getElementById('output1_enabled').checked = data.output1.enabled;";
     html += "document.getElementById('output1_min').value = data.output1.min;";
     html += "document.getElementById('output1_max').value = data.output1.max;";
     html += "document.getElementById('output1_hysteresis').value = data.output1.hysteresis;";
     html += "document.getElementById('output1_polarity').value = data.output1.active_in_range ? 'in_range' : 'out_range';";
+    html += "document.getElementById('output2_enabled').checked = data.output2.enabled;";
     html += "document.getElementById('output2_min').value = data.output2.min;";
     html += "document.getElementById('output2_max').value = data.output2.max;";
     html += "document.getElementById('output2_hysteresis').value = data.output2.hysteresis;";
@@ -254,10 +329,12 @@ void WebServerManager::handleRoot(AsyncWebServerRequest* request) {
     html += "}";
     html += "function saveConfig() {";
     html += "const formData = new FormData();";
+    html += "formData.append('output1_enabled', document.getElementById('output1_enabled').checked ? '1' : '0');";
     html += "formData.append('output1_min', document.getElementById('output1_min').value);";
     html += "formData.append('output1_max', document.getElementById('output1_max').value);";
     html += "formData.append('output1_hysteresis', document.getElementById('output1_hysteresis').value);";
     html += "formData.append('output1_polarity', document.getElementById('output1_polarity').value);";
+    html += "formData.append('output2_enabled', document.getElementById('output2_enabled').checked ? '1' : '0');";
     html += "formData.append('output2_min', document.getElementById('output2_min').value);";
     html += "formData.append('output2_max', document.getElementById('output2_max').value);";
     html += "formData.append('output2_hysteresis', document.getElementById('output2_hysteresis').value);";
@@ -328,7 +405,8 @@ void WebServerManager::handleRoot(AsyncWebServerRequest* request) {
     html += "setInterval(updateStatus, 200);";
     html += "updateStatus(); loadConfig();";
     html += "</script></body></html>";
-    request->send(200, "text/html", html);
+    
+    return html;
 }
 
 void WebServerManager::handleGetStatus(AsyncWebServerRequest* request) {
@@ -361,7 +439,12 @@ void WebServerManager::handleGetStatus(AsyncWebServerRequest* request) {
     
     String response;
     serializeJson(doc, response);
-    request->send(200, "application/json", response);
+    AsyncWebServerResponse* res = request->beginResponse(200, "application/json", response);
+    res->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res->addHeader("Pragma", "no-cache");
+    res->addHeader("Expires", "0");
+    res->addHeader("Connection", "close");
+    request->send(res);
 }
 
 void WebServerManager::handleGetConfig(AsyncWebServerRequest* request) {
@@ -371,7 +454,12 @@ void WebServerManager::handleGetConfig(AsyncWebServerRequest* request) {
     }
     
     String config = config_manager->getConfigJson();
-    request->send(200, "application/json", config);
+    AsyncWebServerResponse* res = request->beginResponse(200, "application/json", config);
+    res->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res->addHeader("Pragma", "no-cache");
+    res->addHeader("Expires", "0");
+    res->addHeader("Connection", "close");
+    request->send(res);
 }
 
 void WebServerManager::handleNotFound(AsyncWebServerRequest* request) {
@@ -404,7 +492,14 @@ void WebServerManager::handleLogin(AsyncWebServerRequest* request) {
             html += "<div class='error'>Invalid password. Please try again.</div>";
         }
         html += "</div></body></html>";
-        request->send(200, "text/html", html);
+        
+        AsyncWebServerResponse* response = request->beginResponse(200, "text/html", html);
+        // Add iOS-friendly headers
+        response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        response->addHeader("Pragma", "no-cache");
+        response->addHeader("Expires", "0");
+        response->addHeader("Connection", "close");
+        request->send(response);
     } else {
         // Process login
         if (request->hasParam("password", true)) {
@@ -496,6 +591,14 @@ void WebServerManager::handleSetConfig(AsyncWebServerRequest* request) {
     DeviceConfig current_config = config_manager->getDeviceConfig();
     
     // Output 1 configuration
+    if (request->hasParam("output1_enabled", true)) {
+        bool new_enabled = request->getParam("output1_enabled", true)->value() == "1";
+        if (new_enabled != current_config.output1_enabled) {
+            current_config.output1_enabled = new_enabled;
+            config_changed = true;
+        }
+    }
+    
     if (request->hasParam("output1_min", true)) {
         int new_min = request->getParam("output1_min", true)->value().toInt();
         if (new_min != current_config.output1_min) {
@@ -529,6 +632,14 @@ void WebServerManager::handleSetConfig(AsyncWebServerRequest* request) {
     }
     
     // Output 2 configuration
+    if (request->hasParam("output2_enabled", true)) {
+        bool new_enabled = request->getParam("output2_enabled", true)->value() == "1";
+        if (new_enabled != current_config.output2_enabled) {
+            current_config.output2_enabled = new_enabled;
+            config_changed = true;
+        }
+    }
+    
     if (request->hasParam("output2_min", true)) {
         int new_min = request->getParam("output2_min", true)->value().toInt();
         if (new_min != current_config.output2_min) {
@@ -567,19 +678,7 @@ void WebServerManager::handleSetConfig(AsyncWebServerRequest* request) {
         config_manager->saveConfig();
         
         // Update sensor manager with new configuration
-        sensor_manager->setOutput1Config(
-            current_config.output1_min,
-            current_config.output1_max,
-            current_config.output1_hysteresis,
-            current_config.output1_active_in_range
-        );
-        
-        sensor_manager->setOutput2Config(
-            current_config.output2_min,
-            current_config.output2_max,
-            current_config.output2_hysteresis,
-            current_config.output2_active_in_range
-        );
+        sensor_manager->updateConfiguration(current_config);
         
         Serial.println("Configuration updated via web interface");
         request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Configuration updated\"}");
@@ -590,7 +689,3 @@ void WebServerManager::handleSetConfig(AsyncWebServerRequest* request) {
 void WebServerManager::handleGetHistory(AsyncWebServerRequest* request) {}
 void WebServerManager::handleClearHistory(AsyncWebServerRequest* request) {}
 void WebServerManager::handleResetConfig(AsyncWebServerRequest* request) {}
-String WebServerManager::generateLoginPage() { return ""; }
-String WebServerManager::generateMainPage() { return ""; }
-String WebServerManager::generateCSS() { return ""; }
-String WebServerManager::generateJavaScript() { return ""; }

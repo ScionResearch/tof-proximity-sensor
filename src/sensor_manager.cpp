@@ -330,6 +330,48 @@ void SensorManager::setOutput2Config(uint16_t min_range, uint16_t max_range, uin
     output2_config.active_in_range = active_in_range;
 }
 
+void SensorManager::updateConfiguration(const DeviceConfig& config) {
+    // Update Output 1 configuration
+    output1_config.range_min = config.output1_min;
+    output1_config.range_max = config.output1_max;
+    output1_config.hysteresis = config.output1_hysteresis;
+    output1_config.active_in_range = config.output1_active_in_range;
+    output1_config.enabled = config.output1_enabled;
+    
+    // Update Output 2 configuration
+    output2_config.range_min = config.output2_min;
+    output2_config.range_max = config.output2_max;
+    output2_config.hysteresis = config.output2_hysteresis;
+    output2_config.active_in_range = config.output2_active_in_range;
+    output2_config.enabled = config.output2_enabled;
+    
+    // If outputs are disabled, turn them off immediately
+    if (!output1_config.enabled) {
+        output1_config.current_state = false;
+        digitalWrite(output1_pin, LOW);
+    }
+    if (!output2_config.enabled) {
+        output2_config.current_state = false;
+        digitalWrite(output2_pin, LOW);
+    }
+    
+    Serial.println("[CONFIG] Sensor manager configuration updated");
+    Serial.print("Output 1: ");
+    Serial.print(output1_config.enabled ? "Enabled" : "Disabled");
+    Serial.print(" - ");
+    Serial.print(output1_config.range_min);
+    Serial.print("-");
+    Serial.print(output1_config.range_max);
+    Serial.println("mm");
+    Serial.print("Output 2: ");
+    Serial.print(output2_config.enabled ? "Enabled" : "Disabled");
+    Serial.print(" - ");
+    Serial.print(output2_config.range_min);
+    Serial.print("-");
+    Serial.print(output2_config.range_max);
+    Serial.println("mm");
+}
+
 void SensorManager::resetSensor() {
     sensor_initialized = false;
     fault_count = 0;

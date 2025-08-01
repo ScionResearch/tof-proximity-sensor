@@ -14,15 +14,17 @@ A configurable proximity sensor system built with ESP32-C6, featuring real-time 
 - **Smart Fault Detection** - Distinguishes genuine sensor faults from normal out-of-range conditions
 - **Automatic Recovery** - Self-healing sensor initialization
 
-### 🌐 **Web Interface**
+### **Web Interface**
 
 - **Real-time Monitoring** - 5Hz update rate for smooth feedback
 - **Live Configuration** - Adjust ranges, hysteresis, and polarity without reprogramming
+- **Individual Output Control** - Enable/disable each output independently
 - **Password Authentication** - Secure access with configurable admin password
 - **Dynamic Visual Feedback** - Color-coded status and output indicators
-- **Responsive Design** - Works on desktop and mobile devices
+- **Mobile-Optimized Design** - Clean, touch-friendly interface for smartphones
+- **iOS Compatibility** - Enhanced captive portal support for reliable iPhone/iPad access
 
-### 🔧 **Hardware Integration**
+### **Hardware Integration**
 
 - **WS2812 RGB LED** - Visual status indication (Green/Blue/Red)
 - **Two Digital Outputs** - Configurable trigger logic with hysteresis
@@ -106,11 +108,10 @@ A configurable proximity sensor system built with ESP32-C6, featuring real-time 
 
 ### **Output Defaults**
 
-
-| Output   | Min Range | Max Range | Hysteresis | Polarity        |
-| ---------- | ----------- | ----------- | ------------ | ----------------- |
-| Output 1 | 100mm     | 300mm     | 25mm       | Active In Range |
-| Output 2 | 400mm     | 600mm     | 50mm       | Active In Range |
+| Output | Enabled | Min Range | Max Range | Hysteresis | Polarity |
+|--------|---------|-----------|-----------|------------|-----------|
+| Output 1 | Disabled | 0mm | 100mm | 25mm | Active In Range |
+| Output 2 | Disabled | 0mm | 100mm | 25mm | Active In Range |
 
 ## Web Interface Guide
 
@@ -127,9 +128,12 @@ A configurable proximity sensor system built with ESP32-C6, featuring real-time 
 
 #### **Output Settings**
 
+- **Enable/Disable:** Individual control for each output
+  - Unchecked = Output disabled (always OFF)
+  - Checked = Output follows detection logic
 - **Min/Max Distance:** Set detection range (0-4000mm)
 - **Hysteresis:** Prevent output chatter (0-500mm)
-- **Polarity:**
+- **Polarity:** 
   - "Active In Range" = Output ON when object is between Min-Max
   - "Active Out of Range" = Output ON when object is outside Min-Max
 
@@ -225,7 +229,7 @@ lib_deps =
 - Verify object is within sensor field of view (27°)
 
 #### **Outputs Not Triggering**
-
+- **Check if outputs are enabled** - Both outputs are disabled by default for safety
 - Verify configuration ranges are appropriate for your application
 - Check hysteresis settings (too high may prevent triggering)
 - Confirm polarity setting matches your requirements

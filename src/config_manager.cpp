@@ -34,17 +34,17 @@ void ConfigManager::setDefaultConfig() {
     
     // Default device settings
     device_config.device_name = "Proximity Sensor";
-    device_config.output1_min = 100;
-    device_config.output1_max = 300;
+    device_config.output1_min = 0;
+    device_config.output1_max = 100;
     device_config.output1_hysteresis = 25;
     device_config.output1_active_in_range = true;
-    device_config.output1_enabled = true;
+    device_config.output1_enabled = false;
     
-    device_config.output2_min = 400;
-    device_config.output2_max = 800;
-    device_config.output2_hysteresis = 50;
-    device_config.output2_active_in_range = false;
-    device_config.output2_enabled = true;
+    device_config.output2_min = 0;
+    device_config.output2_max = 100;
+    device_config.output2_hysteresis = 25;
+    device_config.output2_active_in_range = true;
+    device_config.output2_enabled = false;
 }
 
 bool ConfigManager::loadConfigFromFile() {

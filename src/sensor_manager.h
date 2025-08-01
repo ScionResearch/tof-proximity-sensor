@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <Adafruit_VL53L1X.h>
 #include <Adafruit_NeoPixel.h>
+#include "config_manager.h"
 
 // Configuration constants
 #define MOVING_AVERAGE_SIZE 10
@@ -103,6 +104,7 @@ public:
     void setOutput2Config(uint16_t min_range, uint16_t max_range, uint16_t hysteresis, bool active_in_range);
     void enableOutput1(bool enable) { output1_config.enabled = enable; }
     void enableOutput2(bool enable) { output2_config.enabled = enable; }
+    void updateConfiguration(const DeviceConfig& config);
     
     OutputConfig getOutput1Config() { return output1_config; }
     OutputConfig getOutput2Config() { return output2_config; }
