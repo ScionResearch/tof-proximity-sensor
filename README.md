@@ -6,7 +6,7 @@ A configurable proximity sensor system built with ESP32-C6, featuring real-time 
 
 ## Features
 
-### 🎯 **Core Functionality**
+### **Core Functionality**
 
 - **VL53L1X ToF Sensor** - Accurate distance measurement up to 4 meters
 - **Moving Average Filtering** - 10-sample buffer for stable readings
@@ -40,21 +40,6 @@ A configurable proximity sensor system built with ESP32-C6, featuring real-time 
 - **WS2812** RGB LED (NeoPixel)
 - **Custom PCB** with two digital output channels
 
-### **Pin Configuration**
-
-```cpp
-// I2C for VL53L1X sensor
-#define PIN_SDA         6
-#define PIN_SCL         7
-
-// WS2812 RGB LED
-#define PIN_LED         8
-
-// Digital outputs
-#define PIN_OUT_1       0
-#define PIN_OUT_2       1
-```
-
 ## Quick Start Guide
 
 ### **1. First Boot**
@@ -67,7 +52,6 @@ A configurable proximity sensor system built with ESP32-C6, featuring real-time 
 
 1. Open browser and navigate to: `http://192.168.4.1`
 2. Login with default credentials:
-   - **Username:** admin
    - **Password:** `admin`
 
 ### **3. Initial Configuration**
@@ -80,8 +64,6 @@ A configurable proximity sensor system built with ESP32-C6, featuring real-time 
    - Click "Change Password"
 2. **Configure Outputs**:
 
-   - **Output 1 Default:** 100-300mm range, 25mm hysteresis, active in range
-   - **Output 2 Default:** 400-600mm range, 50mm hysteresis, active in range
    - Adjust ranges, hysteresis, and polarity as needed
    - Click "Save Configuration"
 
@@ -96,13 +78,12 @@ A configurable proximity sensor system built with ESP32-C6, featuring real-time 
 
 ### **Authentication**
 
-- **Admin Username:** admin
 - **Default Admin Password:** `admin`
-- **⚠️ Important:** Change the default password after first login!
+- **Important:** Change the default password after first login!
 
 ### **Sensor Configuration**
 
-- **Timing Budget:** 50ms (good balance of speed vs accuracy)
+- **Timing Budget:** 50ms
 - **Moving Average:** 10 samples
 - **Update Rate:** 5Hz web interface refresh
 
