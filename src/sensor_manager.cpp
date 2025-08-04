@@ -246,10 +246,38 @@ void SensorManager::updateLED() {
     
     switch (device_status) {
         case STATUS_OK:
-            color = status_led->Color(LED_OK_R, LED_OK_G, LED_OK_B);
+            // Create pulsing effect for normal operation
+            {
+                // Use sine wave for smooth breathing effect (2 second cycle)
+                float pulse_phase = (millis() % 2000) / 2000.0 * 2.0 * PI;
+                float brightness = (sin(pulse_phase) + 1.0) / 2.0; // 0.0 to 1.0
+                
+                // Apply minimum brightness so LED doesn't go completely off
+                brightness = 0.2 + (brightness * 0.8); // 0.2 to 1.0 range
+                
+                uint8_t r = (uint8_t)(LED_OK_R * brightness);
+                uint8_t g = (uint8_t)(LED_OK_G * brightness);
+                uint8_t b = (uint8_t)(LED_OK_B * brightness);
+                
+                color = status_led->Color(r, g, b);
+            }
             break;
         case STATUS_TRIGGERED:
-            color = status_led->Color(LED_TRIGGERED_R, LED_TRIGGERED_G, LED_TRIGGERED_B);
+            // Create pulsing effect for triggered state
+            {
+                // Use sine wave for smooth breathing effect (1.5 second cycle - faster than normal)
+                float pulse_phase = (millis() % 1500) / 1500.0 * 2.0 * PI;
+                float brightness = (sin(pulse_phase) + 1.0) / 2.0; // 0.0 to 1.0
+                
+                // Apply minimum brightness so LED doesn't go completely off
+                brightness = 0.3 + (brightness * 0.7); // 0.3 to 1.0 range (brighter minimum)
+                
+                uint8_t r = (uint8_t)(LED_TRIGGERED_R * brightness);
+                uint8_t g = (uint8_t)(LED_TRIGGERED_G * brightness);
+                uint8_t b = (uint8_t)(LED_TRIGGERED_B * brightness);
+                
+                color = status_led->Color(r, g, b);
+            }
             break;
         case STATUS_FAULT:
             // Blink red for fault

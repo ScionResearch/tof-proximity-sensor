@@ -6,7 +6,7 @@
 #include "config_manager.h"
 
 // Configuration constants
-#define MOVING_AVERAGE_SIZE 10
+#define MOVING_AVERAGE_SIZE 5
 #define SENSOR_TIMEOUT_MS 1000
 #define HYSTERESIS_DEFAULT 50  // mm
 
