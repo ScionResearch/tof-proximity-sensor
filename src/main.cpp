@@ -7,6 +7,8 @@
 SensorManager* sensorManager;
 ConfigManager* configManager;
 WebServerManager* webServer;
+Adafruit_NeoPixel led = Adafruit_NeoPixel(1, PIN_LED_DATA, NEO_GRB + NEO_KHZ800);
+Adafruit_VL53L1X vl53 = Adafruit_VL53L1X(PIN_TOF_SHUTDOWN, PIN_TOF_INT);
 
 void setup() {
     Serial.begin(115200);
@@ -104,7 +106,7 @@ void setup() {
     Serial.println("- Configurable output control");
     Serial.println("- Persistent configuration storage");
     Serial.println("================================");
-    Serial.println("🎯 PROXIMITY SENSOR READY");
+    Serial.println("PROXIMITY SENSOR READY");
     Serial.println("Core functionality:");
     Serial.println("- Distance measurement with moving average");
     Serial.println("- LED status feedback");

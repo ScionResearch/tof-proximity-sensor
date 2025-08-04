@@ -70,8 +70,8 @@ SensorManager::SensorManager(Adafruit_VL53L1X* tof, Adafruit_NeoPixel* led, uint
     digitalWrite(output2_pin, LOW);
     
     // Initialize output configurations with defaults
-    output1_config = {false, 100, 300, HYSTERESIS_DEFAULT, true, false};
-    output2_config = {false, 400, 600, HYSTERESIS_DEFAULT, true, false};
+    output1_config = {false, 0, 100, HYSTERESIS_DEFAULT, true, false};
+    output2_config = {false, 0, 100, HYSTERESIS_DEFAULT, true, false};
 }
 
 SensorManager::~SensorManager() {

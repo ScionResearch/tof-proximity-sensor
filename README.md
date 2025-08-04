@@ -94,6 +94,12 @@ A configurable proximity sensor system built with ESP32-C6, featuring real-time 
 | Output 1 | Disabled | 0mm | 100mm | 25mm | Active In Range |
 | Output 2 | Disabled | 0mm | 100mm | 25mm | Active In Range |
 
+### **Factory Reset**
+
+- Connect a jumper from GND to the Factory Reset pin (pin 17).
+- Power cycle or reset the device, leave the jumper in place until the LED turns green.
+- All settings will be reset to default, including web admin password.
+
 ## Web Interface Guide
 
 ### **Status Monitoring**

@@ -15,5 +15,5 @@
 #define PIN_TOF_SCL             22
 #define PIN_TOF_SDA             23
 
-Adafruit_NeoPixel led = Adafruit_NeoPixel(1, PIN_LED_DATA, NEO_GRB + NEO_KHZ800);
-Adafruit_VL53L1X vl53 = Adafruit_VL53L1X(PIN_TOF_SHUTDOWN, PIN_TOF_INT);
+extern Adafruit_NeoPixel led;
+extern Adafruit_VL53L1X vl53;

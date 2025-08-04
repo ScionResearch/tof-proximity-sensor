@@ -15,6 +15,34 @@ bool ConfigManager::initialize() {
     }
     
     Serial.println("LittleFS initialized");
+
+    pinMode(PIN_FACTORY_DEFAULT, INPUT_PULLUP);
+    delay(100);
+    if (!digitalRead(PIN_FACTORY_DEFAULT)) {
+        uint32_t start_time = millis();
+        led.setPixelColor(0, led.Color(255, 0, 255)); // Purple for factory reset
+        led.show();
+        
+        while (!digitalRead(PIN_FACTORY_DEFAULT) && (millis() - start_time) < 5000) {
+            delay(100);
+        }
+        if (millis() - start_time >= 5000) {
+            saveConfigToFile();
+            Serial.println("Factory reset completed");
+            led.setPixelColor(0, led.Color(0, 255, 0)); // Green for factory reset
+            led.show();
+            delay(1000);
+            led.setPixelColor(0, led.Color(0, 0, 0)); // Turn off LED
+            led.show();
+        } else {
+            Serial.println("Factory reset cancelled");
+            led.setPixelColor(0, led.Color(255, 0, 0));
+            led.show();
+            delay(1000);
+            led.setPixelColor(0, led.Color(0, 0, 0)); // Turn off LED
+            led.show();
+        }
+    }
     
     // Load configuration from file
     if (!loadConfigFromFile()) {
@@ -69,7 +97,7 @@ bool ConfigManager::loadConfigFromFile() {
     }
     
     // Load WiFi config
-    if (doc.containsKey("wifi")) {
+    if (doc["wifi"].is<JsonObject>()) {
         JsonObject wifi = doc["wifi"];
         wifi_config.ap_ssid = wifi["ap_ssid"] | DEFAULT_AP_SSID;
         wifi_config.ap_password = wifi["ap_password"] | DEFAULT_AP_PASSWORD;
@@ -78,11 +106,11 @@ bool ConfigManager::loadConfigFromFile() {
     }
     
     // Load device config
-    if (doc.containsKey("device")) {
+    if (doc["device"].is<JsonObject>()) {
         JsonObject device = doc["device"];
         device_config.device_name = device["name"] | "Proximity Sensor";
         
-        if (device.containsKey("output1")) {
+        if (device["output1"].is<JsonObject>()) {
             JsonObject out1 = device["output1"];
             device_config.output1_min = out1["min"] | 100;
             device_config.output1_max = out1["max"] | 300;
@@ -91,7 +119,7 @@ bool ConfigManager::loadConfigFromFile() {
             device_config.output1_enabled = out1["enabled"] | true;
         }
         
-        if (device.containsKey("output2")) {
+        if (device["output2"].is<JsonObject>()) {
             JsonObject out2 = device["output2"];
             device_config.output2_min = out2["min"] | 400;
             device_config.output2_max = out2["max"] | 800;
@@ -261,12 +289,12 @@ bool ConfigManager::setConfigFromJson(const String& json) {
     }
     
     // Update device config
-    if (doc.containsKey("device_name")) {
+    if (doc["device_name"].is<String>()) {
         device_config.device_name = doc["device_name"].as<String>();
     }
     
-    if (doc.containsKey("output1")) {
-        JsonObject out1 = doc["output1"];
+    if (doc["output1"].is<JsonObject>()) {
+        JsonObject out1 = doc["output1"].to<JsonObject>();
         device_config.output1_min = out1["min"] | device_config.output1_min;
         device_config.output1_max = out1["max"] | device_config.output1_max;
         device_config.output1_hysteresis = out1["hysteresis"] | device_config.output1_hysteresis;
@@ -274,8 +302,8 @@ bool ConfigManager::setConfigFromJson(const String& json) {
         device_config.output1_enabled = out1["enabled"] | device_config.output1_enabled;
     }
     
-    if (doc.containsKey("output2")) {
-        JsonObject out2 = doc["output2"];
+    if (doc["output2"].is<JsonObject>()) {
+        JsonObject out2 = doc["output2"].to<JsonObject>();
         device_config.output2_min = out2["min"] | device_config.output2_min;
         device_config.output2_max = out2["max"] | device_config.output2_max;
         device_config.output2_hysteresis = out2["hysteresis"] | device_config.output2_hysteresis;

@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
+#include "sys_init.h"
 
 // Default configuration values
 #define DEFAULT_AP_SSID "ProximitySensor"
