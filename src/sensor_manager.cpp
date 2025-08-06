@@ -45,6 +45,278 @@ bool MovingAverage::isReady() {
     return count >= (size / 2); // Ready when at least half full
 }
 
+float MovingAverage::getVariance() {
+    if (count < 2) return 0.0;
+    
+    float mean = (float)sum / count;
+    float variance_sum = 0.0;
+    
+    for (uint8_t i = 0; i < count; i++) {
+        float diff = buffer[i] - mean;
+        variance_sum += diff * diff;
+    }
+    
+    return variance_sum / (count - 1);
+}
+
+int16_t MovingAverage::getMedian() {
+    if (count == 0) return 0;
+    
+    // Create a copy of the buffer for sorting
+    int16_t* sorted = new int16_t[count];
+    for (uint8_t i = 0; i < count; i++) {
+        sorted[i] = buffer[i];
+    }
+    
+    // Simple insertion sort
+    for (uint8_t i = 1; i < count; i++) {
+        int16_t key = sorted[i];
+        int j = i - 1;
+        while (j >= 0 && sorted[j] > key) {
+            sorted[j + 1] = sorted[j];
+            j--;
+        }
+        sorted[j + 1] = key;
+    }
+    
+    int16_t median = sorted[count / 2];
+    delete[] sorted;
+    return median;
+}
+
+// NoiseFilter implementation
+NoiseFilter::NoiseFilter(uint8_t buffer_size) {
+    size = buffer_size;
+    buffer = new int16_t[size];
+    reset();
+}
+
+NoiseFilter::~NoiseFilter() {
+    delete[] buffer;
+}
+
+void NoiseFilter::insertionSort(int16_t* arr, uint8_t n) {
+    for (uint8_t i = 1; i < n; i++) {
+        int16_t key = arr[i];
+        int j = i - 1;
+        while (j >= 0 && arr[j] > key) {
+            arr[j + 1] = arr[j];
+            j--;
+        }
+        arr[j + 1] = key;
+    }
+}
+
+bool NoiseFilter::isOutlier(int16_t value, int16_t median, uint16_t threshold) {
+    return abs(value - median) > threshold;
+}
+
+bool NoiseFilter::addValue(int16_t value) {
+    // If we have enough samples, check if this is an outlier
+    if (count >= 3) {
+        int16_t current_median = getMedian();
+        if (isOutlier(value, current_median, MAX_OUTLIER_DEVIATION)) {
+            Serial.print("Rejecting outlier: ");
+            Serial.print(value);
+            Serial.print(" (median: ");
+            Serial.print(current_median);
+            Serial.println(")");
+            return false; // Reject outlier
+        }
+    }
+    
+    // Remove old value from sum if buffer is full
+    if (count == size) {
+        sum -= buffer[index];
+    } else {
+        count++;
+    }
+    
+    // Add new value
+    buffer[index] = value;
+    sum += value;
+    
+    // Move to next position
+    index = (index + 1) % size;
+    return true; // Value accepted
+}
+
+int16_t NoiseFilter::getFilteredValue() {
+    if (count == 0) return 0;
+    
+    // Use median for better outlier rejection
+    return getMedian();
+}
+
+float NoiseFilter::getVariance() {
+    if (count < 2) return 0.0;
+    
+    float mean = (float)sum / count;
+    float variance_sum = 0.0;
+    
+    for (uint8_t i = 0; i < count; i++) {
+        float diff = buffer[i] - mean;
+        variance_sum += diff * diff;
+    }
+    
+    return variance_sum / (count - 1);
+}
+
+int16_t NoiseFilter::getMedian() {
+    if (count == 0) return 0;
+    
+    // Create a copy of the buffer for sorting
+    int16_t* sorted = new int16_t[count];
+    for (uint8_t i = 0; i < count; i++) {
+        sorted[i] = buffer[i];
+    }
+    
+    insertionSort(sorted, count);
+    int16_t median = sorted[count / 2];
+    delete[] sorted;
+    return median;
+}
+
+void NoiseFilter::reset() {
+    index = 0;
+    count = 0;
+    sum = 0;
+    for (uint8_t i = 0; i < size; i++) {
+        buffer[i] = 0;
+    }
+}
+
+bool NoiseFilter::isReady() {
+    return count >= (size / 2); // Ready when at least half full
+}
+
+uint8_t NoiseFilter::getValidSampleCount() {
+    return count;
+}
+
+// AdaptiveFilter implementation
+AdaptiveFilter::AdaptiveFilter(uint8_t buffer_size) {
+    this->buffer_size = buffer_size;
+    recent_readings = new int16_t[buffer_size];
+    filtered_value = 0.0;
+    recent_index = 0;
+    recent_count = 0;
+    change_confirmation_count = 0;
+    change_detected = false;
+    is_initialized = false;
+    
+    for (uint8_t i = 0; i < buffer_size; i++) {
+        recent_readings[i] = 0;
+    }
+}
+
+AdaptiveFilter::~AdaptiveFilter() {
+    delete[] recent_readings;
+}
+
+bool AdaptiveFilter::detectSustainedChange(int16_t new_value) {
+    if (!is_initialized) return false;
+    
+    float diff = abs(new_value - filtered_value);
+    
+    // Check if this reading represents a significant change
+    if (diff > CHANGE_DETECTION_THRESHOLD) {
+        change_confirmation_count++;
+        Serial.print("Change detected: ");
+        Serial.print(new_value);
+        Serial.print(" vs filtered: ");
+        Serial.print((int16_t)filtered_value);
+        Serial.print(", diff: ");
+        Serial.print((int16_t)diff);
+        Serial.print(", count: ");
+        Serial.println(change_confirmation_count);
+        
+        // Require multiple consecutive readings to confirm change
+        if (change_confirmation_count >= CHANGE_CONFIRMATION_COUNT) {
+            Serial.println("Sustained change confirmed - entering rapid adaptation mode");
+            return true;
+        }
+    } else {
+        // Reset change counter if reading is close to current filtered value
+        if (change_confirmation_count > 0) {
+            Serial.println("Change sequence broken - returning to normal filtering");
+        }
+        change_confirmation_count = 0;
+    }
+    
+    return false;
+}
+
+float AdaptiveFilter::getAdaptationRate() {
+    // Use aggressive adaptation when sustained change is detected
+    return change_detected ? RAPID_ADAPT_ALPHA : NORMAL_ADAPT_ALPHA;
+}
+
+void AdaptiveFilter::addValue(int16_t value) {
+    // Store in recent readings buffer
+    recent_readings[recent_index] = value;
+    recent_index = (recent_index + 1) % buffer_size;
+    if (recent_count < buffer_size) recent_count++;
+    
+    if (!is_initialized) {
+        // Initialize with first reading
+        filtered_value = value;
+        is_initialized = true;
+        Serial.print("AdaptiveFilter initialized with value: ");
+        Serial.println(value);
+        return;
+    }
+    
+    // Detect if this is part of a sustained change
+    change_detected = detectSustainedChange(value);
+    
+    // Apply exponential smoothing with adaptive rate
+    float alpha = getAdaptationRate();
+    filtered_value = alpha * value + (1.0 - alpha) * filtered_value;
+    
+    // Reset change detection if we've adapted to the new value
+    if (change_detected && abs(value - filtered_value) < CHANGE_DETECTION_THRESHOLD / 2) {
+        change_detected = false;
+        change_confirmation_count = 0;
+        Serial.println("Adaptation complete - returning to normal filtering");
+    }
+}
+
+int16_t AdaptiveFilter::getFilteredValue() {
+    return (int16_t)filtered_value;
+}
+
+void AdaptiveFilter::reset() {
+    filtered_value = 0.0;
+    recent_index = 0;
+    recent_count = 0;
+    change_confirmation_count = 0;
+    change_detected = false;
+    is_initialized = false;
+    
+    for (uint8_t i = 0; i < buffer_size; i++) {
+        recent_readings[i] = 0;
+    }
+}
+
+float AdaptiveFilter::getVariance() {
+    if (recent_count < 2) return 0.0;
+    
+    float mean = 0.0;
+    for (uint8_t i = 0; i < recent_count; i++) {
+        mean += recent_readings[i];
+    }
+    mean /= recent_count;
+    
+    float variance_sum = 0.0;
+    for (uint8_t i = 0; i < recent_count; i++) {
+        float diff = recent_readings[i] - mean;
+        variance_sum += diff * diff;
+    }
+    
+    return variance_sum / (recent_count - 1);
+}
+
 // SensorManager implementation
 SensorManager::SensorManager(Adafruit_VL53L1X* tof, Adafruit_NeoPixel* led, uint8_t out1_pin, uint8_t out2_pin) {
     tof_sensor = tof;
@@ -52,26 +324,37 @@ SensorManager::SensorManager(Adafruit_VL53L1X* tof, Adafruit_NeoPixel* led, uint
     output1_pin = out1_pin;
     output2_pin = out2_pin;
     
-    distance_filter = new MovingAverage(MOVING_AVERAGE_SIZE);
+    distance_filter = new AdaptiveFilter(MOVING_AVERAGE_SIZE);
     
-    // Initialize variables
-    last_reading_time = 0;
-    current_distance = -1;
-    filtered_distance = -1;
-    device_status = STATUS_FAULT;
+    current_distance = 0;
+    filtered_distance = 0;
+    device_status = STATUS_OK;
     sensor_initialized = false;
     fault_count = 0;
     out_of_range = false;
+    last_reading_time = 0;
     
-    // Set up output pins
+    // Initialize enhanced noise detection variables
+    rejected_readings_count = 0;
+    current_variance = 0.0;
+    signal_rate = 0.0;
+    high_noise_detected = false;
+    
+    // Initialize OTA update mode variables
+    ota_update_mode = false;
+    custom_led_r = 0;
+    custom_led_g = 0;
+    custom_led_b = 0;
+    
+    // Initialize output configurations as disabled
+    output1_config = {false, 0, 0, HYSTERESIS_DEFAULT, true, false};
+    output2_config = {false, 0, 0, HYSTERESIS_DEFAULT, true, false};
+    
+    // Configure output pins
     pinMode(output1_pin, OUTPUT);
     pinMode(output2_pin, OUTPUT);
     digitalWrite(output1_pin, LOW);
     digitalWrite(output2_pin, LOW);
-    
-    // Initialize output configurations with defaults
-    output1_config = {false, 0, 100, HYSTERESIS_DEFAULT, true, false};
-    output2_config = {false, 0, 100, HYSTERESIS_DEFAULT, true, false};
 }
 
 SensorManager::~SensorManager() {
@@ -154,8 +437,11 @@ void SensorManager::update() {
                 case 4:  // VL53L1_RANGESTATUS_OUTOFBOUNDS_FAIL (out of range - normal)
                     // These are not genuine faults - sensor is working but no valid target
                     out_of_range = true;
+                    current_distance = -1;  // Set to invalid distance for trigger logic
                     Serial.print("Sensor out of range or no target, status: ");
-                    Serial.println(range_status);
+                    Serial.print(range_status);
+                    Serial.print(", current_distance set to: ");
+                    Serial.println(current_distance);
                     break;
                     
                 default:
@@ -185,28 +471,93 @@ void SensorManager::update() {
                 // Valid distance reading
                 out_of_range = false;
                 current_distance = raw_distance;
-                distance_filter->addValue(raw_distance);
                 
-                if (distance_filter->isReady()) {
-                    filtered_distance = distance_filter->getAverage();
+                // Assess signal quality based on range status and distance validity
+                // VL53L1X doesn't expose signalRate() in Adafruit library, so we use range_status
+                bool signal_quality_ok = (range_status == 0 || range_status == 1) && raw_distance > 10; // Valid range or minor sigma fail, and reasonable distance
+                signal_rate = raw_distance > 0 ? 1.0 : 0.0; // Simple quality indicator based on valid reading
+                
+                if (signal_quality_ok) {
+                    // Add value to adaptive filter (always accepts, but adapts rate based on change detection)
+                    distance_filter->addValue(raw_distance);
                     
-                    // Update device status based on output triggers
-                    bool any_triggered = false;
-                    if (output1_config.enabled && checkOutputTrigger(output1_config, filtered_distance)) {
-                        any_triggered = true;
+                    if (distance_filter->isReady()) {
+                        // Use the adaptively filtered value
+                        filtered_distance = distance_filter->getFilteredValue();
+                        
+                        // Calculate current variance for noise assessment
+                        current_variance = distance_filter->getVariance();
+                        
+                        // Check if filter detected a sustained change
+                        bool change_detected = distance_filter->isChangeDetected();
+                        
+                        // Detect high noise conditions
+                        high_noise_detected = current_variance > MAX_VARIANCE_THRESHOLD;
+                        
+                        if (high_noise_detected) {
+                            Serial.print("High noise detected! Variance: ");
+                            Serial.print(current_variance);
+                            Serial.print(", Signal rate: ");
+                            Serial.println(signal_rate);
+                        }
+                        
+                        if (change_detected) {
+                            Serial.println("Adaptive filter: Rapid adaptation mode active");
+                        }
+                        
+                        // Update device status based on output triggers
+                        bool any_triggered = false;
+                        if (output1_config.enabled && checkOutputTrigger(output1_config, filtered_distance)) {
+                            any_triggered = true;
+                        }
+                        if (output2_config.enabled && checkOutputTrigger(output2_config, filtered_distance)) {
+                            any_triggered = true;
+                        }
+                        
+                        device_status = any_triggered ? STATUS_TRIGGERED : STATUS_OK;
+                        
+                        // Update outputs
+                        updateOutputs();
+                        
+                        // Debug output for adaptive filtering monitoring
+                        static uint16_t debug_counter = 0;
+                        debug_counter++;
+                        if (debug_counter % 20 == 0) {  // Every 20 readings
+                            Serial.print("Adaptive filter stats - Raw: ");
+                            Serial.print(raw_distance);
+                            Serial.print(", Filtered: ");
+                            Serial.print(filtered_distance);
+                            Serial.print(", Variance: ");
+                            Serial.print(current_variance);
+                            Serial.print(", Change mode: ");
+                            Serial.println(change_detected ? "RAPID" : "NORMAL");
+                        }
                     }
-                    if (output2_config.enabled && checkOutputTrigger(output2_config, filtered_distance)) {
-                        any_triggered = true;
-                    }
-                    
-                    device_status = any_triggered ? STATUS_TRIGGERED : STATUS_OK;
-                    
-                    // Update outputs
-                    updateOutputs();
+                } else {
+                    Serial.print("Poor signal quality, rate: ");
+                    Serial.println(signal_rate);
+                    rejected_readings_count++;
                 }
             } else {
-                // Out of range but sensor is working - maintain current status
-                // Don't change device_status unless we have a valid reading
+                // Out of range but sensor is working
+                // For out-of-range conditions, we need to update outputs with an invalid distance
+                // This ensures outputs are properly reset when objects are quickly removed
+                Serial.println("Sensor out of range - updating outputs with invalid distance");
+                
+                // Update outputs with invalid distance (-1) to ensure proper state transitions
+                updateOutputs();
+                
+                // Update device status based on current output states after the update
+                bool any_triggered = false;
+                if (output1_config.enabled && output1_config.current_state) {
+                    any_triggered = true;
+                }
+                if (output2_config.enabled && output2_config.current_state) {
+                    any_triggered = true;
+                }
+                
+                device_status = any_triggered ? STATUS_TRIGGERED : STATUS_OK;
+                
                 if (device_status == STATUS_FAULT) {
                     device_status = STATUS_OK;  // Recover from fault if sensor is responding
                 }
@@ -243,6 +594,14 @@ void SensorManager::update() {
 
 void SensorManager::updateLED() {
     uint32_t color;
+    
+    // Check if we're in OTA update mode first
+    if (ota_update_mode) {
+        color = status_led->Color(custom_led_r, custom_led_g, custom_led_b);
+        status_led->setPixelColor(0, color);
+        status_led->show();
+        return;
+    }
     
     switch (device_status) {
         case STATUS_OK:
@@ -297,12 +656,22 @@ void SensorManager::updateLED() {
 }
 
 void SensorManager::updateOutputs() {
+    // Use current_distance if out of range, otherwise use filtered_distance
+    int16_t distance_for_trigger = out_of_range ? current_distance : filtered_distance;
+    
     // Update output 1
     if (output1_config.enabled) {
-        bool new_state = checkOutputTrigger(output1_config, filtered_distance);
+        bool new_state = checkOutputTrigger(output1_config, distance_for_trigger);
         if (new_state != output1_config.current_state) {
             output1_config.current_state = new_state;
             digitalWrite(output1_pin, new_state ? HIGH : LOW);
+            Serial.print("Output 1 state changed to: ");
+            Serial.print(new_state ? "HIGH" : "LOW");
+            Serial.print(" (distance: ");
+            Serial.print(distance_for_trigger);
+            Serial.print(", out_of_range: ");
+            Serial.print(out_of_range ? "true" : "false");
+            Serial.println(")");
         }
     } else {
         output1_config.current_state = false;
@@ -311,10 +680,17 @@ void SensorManager::updateOutputs() {
     
     // Update output 2
     if (output2_config.enabled) {
-        bool new_state = checkOutputTrigger(output2_config, filtered_distance);
+        bool new_state = checkOutputTrigger(output2_config, distance_for_trigger);
         if (new_state != output2_config.current_state) {
             output2_config.current_state = new_state;
             digitalWrite(output2_pin, new_state ? HIGH : LOW);
+            Serial.print("Output 2 state changed to: ");
+            Serial.print(new_state ? "HIGH" : "LOW");
+            Serial.print(" (distance: ");
+            Serial.print(distance_for_trigger);
+            Serial.print(", out_of_range: ");
+            Serial.print(out_of_range ? "true" : "false");
+            Serial.println(")");
         }
     } else {
         output2_config.current_state = false;
@@ -427,4 +803,36 @@ void SensorManager::factoryReset() {
     output2_config = {false, 400, 600, HYSTERESIS_DEFAULT, true, false};
     
     resetSensor();
+}
+
+// LED control methods for OTA updates
+void SensorManager::setOTAUpdateMode(bool enabled) {
+    ota_update_mode = enabled;
+    if (enabled) {
+        // Set LED to firmware update color (orange)
+        custom_led_r = LED_FW_UPDATE_R;
+        custom_led_g = LED_FW_UPDATE_G;
+        custom_led_b = LED_FW_UPDATE_B;
+        Serial.println("[OTA] LED set to firmware update mode (orange)");
+    } else {
+        Serial.println("[OTA] LED returned to normal operation mode");
+    }
+    updateLED();
+}
+
+void SensorManager::setCustomLEDColor(uint8_t r, uint8_t g, uint8_t b) {
+    custom_led_r = r;
+    custom_led_g = g;
+    custom_led_b = b;
+    if (ota_update_mode) {
+        updateLED();
+    }
+}
+
+void SensorManager::enableOutput1(bool enabled) {
+    output1_config.enabled = enabled;
+}
+
+void SensorManager::enableOutput2(bool enabled) {
+    output2_config.enabled = enabled;
 }

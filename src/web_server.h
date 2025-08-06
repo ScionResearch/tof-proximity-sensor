@@ -5,6 +5,7 @@
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include <DNSServer.h>
+#include <Update.h>
 #include "config_manager.h"
 #include "sensor_manager.h"
 
@@ -37,6 +38,11 @@ private:
     void handleResetConfig(AsyncWebServerRequest* request);
     void handleChangePassword(AsyncWebServerRequest* request);
     void handleNotFound(AsyncWebServerRequest* request);
+    
+    // OTA update methods
+    void initializeOTA();
+    void handleOTAUpdate(AsyncWebServerRequest* request);
+    void handleOTAUpload(AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final);
     
     // HTML content generators
     String generateLoginPage();

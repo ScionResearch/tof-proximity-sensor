@@ -87,6 +87,9 @@ bool WebServerManager::initialize() {
         handleNotFound(request);
     });
     
+    // Initialize OTA functionality
+    initializeOTA();
+    
     // Start server
     server->begin();
     Serial.println("Web server started on port 80");
@@ -94,10 +97,34 @@ bool WebServerManager::initialize() {
 }
 
 bool WebServerManager::startAccessPoint() {
+    // Get hardware MAC address before setting WiFi mode
+    // Initialize WiFi first to ensure MAC address is available
+    WiFi.mode(WIFI_OFF);
+    delay(10);
+    WiFi.mode(WIFI_STA);
+    delay(100); // Give time for WiFi to initialize
+    
     // Generate unique SSID based on MAC address
     uint8_t mac[6];
     WiFi.macAddress(mac);
-    String unique_ssid = "ToF-Prox-" + String(mac[3], HEX) + String(mac[4], HEX) + String(mac[5], HEX);
+    
+    // Debug: Print full MAC address to verify uniqueness
+    Serial.print("Hardware MAC Address: ");
+    for (int i = 0; i < 6; i++) {
+        if (i > 0) Serial.print(":");
+        if (mac[i] < 16) Serial.print("0");
+        Serial.print(mac[i], HEX);
+    }
+    Serial.println();
+    
+    // Use last 3 bytes for SSID (bytes 3, 4, 5)
+    String unique_ssid = "ToF-Prox-";
+    if (mac[3] < 16) unique_ssid += "0";
+    unique_ssid += String(mac[3], HEX);
+    if (mac[4] < 16) unique_ssid += "0";
+    unique_ssid += String(mac[4], HEX);
+    if (mac[5] < 16) unique_ssid += "0";
+    unique_ssid += String(mac[5], HEX);
     unique_ssid.toUpperCase();
     
     WiFiConfig wifi_config = config_manager->getWiFiConfig();
@@ -282,6 +309,20 @@ String WebServerManager::generateMainPage() {
     html += "</form>";
     html += "<div id='password-message'></div>";
     html += "</div>";
+    html += "<div class='config-section'>";
+    html += "<h3>Firmware Update (OTA)</h3>";
+    html += "<div class='output-config'>";
+    html += "<p style='color: #856404; background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffeaa7;'>";
+    html += "<strong>Warning:</strong> Only upload firmware files (.bin) intended for this device. ";
+    html += "Incorrect firmware can permanently damage the device.";
+    html += "</p>";
+    html += "<p><strong>Version:   </strong> " + String(FW_VERSION) + "</p>";
+    html += "<p><strong>Build Date:</strong> " + String(__DATE__) + " " + String(__TIME__) + "</p>";
+    html += "<button type='button' class='config-btn' onclick='openOTAUpdate()' style='background: #fd7e14;'>";
+    html += "Open Firmware Update";
+    html += "</button>";
+    html += "</div>";
+    html += "</div>";
     html += "<div style='text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;'>";
     html += "<button class='logout-btn' onclick='logout()'>Logout</button>";
     html += "</div>";
@@ -401,6 +442,11 @@ String WebServerManager::generateMainPage() {
     html += "msgDiv.textContent = 'Network error: ' + error.message;";
     html += "setTimeout(() => msgDiv.style.display = 'none', 3000);";
     html += "});";
+    html += "}";
+    html += "function openOTAUpdate() {";
+    html += "if (confirm('Are you sure you want to open the firmware update page? Make sure you have the correct firmware file ready.')) {";
+    html += "window.open('/update', '_blank');";
+    html += "}";
     html += "}";
     html += "setInterval(updateStatus, 200);";
     html += "updateStatus(); loadConfig();";
@@ -689,3 +735,211 @@ void WebServerManager::handleSetConfig(AsyncWebServerRequest* request) {
 void WebServerManager::handleGetHistory(AsyncWebServerRequest* request) {}
 void WebServerManager::handleClearHistory(AsyncWebServerRequest* request) {}
 void WebServerManager::handleResetConfig(AsyncWebServerRequest* request) {}
+
+// OTA Update Implementation
+void WebServerManager::initializeOTA() {
+    // Add OTA update page route
+    server->on("/update", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        handleOTAUpdate(request);
+    });
+    
+    // Add OTA upload handler
+    server->on("/update", HTTP_POST, 
+        [this](AsyncWebServerRequest* request) {
+            // Handle the response after upload completes
+            if (Update.hasError()) {
+                request->send(500, "text/plain", "Update Failed: " + String(Update.getError()));
+            } else {
+                request->send(200, "text/plain", "Update Successful! Rebooting...");
+                delay(1000);
+                ESP.restart();
+            }
+        },
+        [this](AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final) {
+            handleOTAUpload(request, filename, index, data, len, final);
+        }
+    );
+    
+    Serial.println("OTA Update service initialized");
+    Serial.println("Access OTA update at: http://[device-ip]/update");
+}
+
+void WebServerManager::handleOTAUpdate(AsyncWebServerRequest* request) {
+    // Check authentication
+    if (!isAuthenticated(request)) {
+        request->redirect("/login");
+        return;
+    }
+    
+    // Generate OTA update page
+    String html = "<!DOCTYPE html><html><head>";
+    html += "<title>Firmware Update - Proximity Sensor</title>";
+    html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+    html += "<style>";
+    html += "body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }";
+    html += ".container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }";
+    html += "h1 { color: #333; text-align: center; margin-bottom: 30px; }";
+    html += ".warning { background: #fff3cd; color: #856404; padding: 15px; border-radius: 5px; border: 1px solid #ffeaa7; margin-bottom: 20px; }";
+    html += ".upload-section { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; }";
+    html += "input[type='file'] { width: 100%; padding: 10px; margin: 10px 0; border: 2px dashed #ccc; border-radius: 5px; }";
+    html += ".btn { background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; font-size: 16px; width: 100%; }";
+    html += ".btn:hover { background: #0056b3; }";
+    html += ".btn:disabled { background: #6c757d; cursor: not-allowed; }";
+    html += "#progress { width: 100%; height: 20px; background: #e9ecef; border-radius: 10px; margin: 20px 0; overflow: hidden; }";
+    html += "#progress-bar { height: 100%; background: #28a745; width: 0%; transition: width 0.3s; }";
+    html += ".back-btn { background: #6c757d; margin-top: 20px; }";
+    html += ".back-btn:hover { background: #545b62; }";
+    html += "</style></head><body>";
+    html += "<div class='container'>";
+    html += "<h1>Firmware Update</h1>";
+    html += "<div class='warning'>";
+    html += "<strong>Warning:</strong> Only upload firmware files (.bin) intended for this device. ";
+    html += "Incorrect firmware can permanently damage the device. Ensure you have a stable power supply during the update.";
+    html += "</div>";
+    html += "<div class='upload-section'>";
+    html += "<h3>Current Firmware</h3>";
+    html += "<p><strong>Version:   </strong> " + String(FW_VERSION) + "</p>";
+    html += "<p><strong>Build Date:</strong> " + String(__DATE__) + " " + String(__TIME__) + "</p>";
+    html += "<p><strong>Free Space:</strong> " + String(ESP.getFreeSketchSpace()) + " bytes</p>";
+    html += "</div>";
+    html += "<form id='upload-form' enctype='multipart/form-data'>";
+    html += "<h3>Select Firmware File</h3>";
+    html += "<input type='file' id='firmware-file' accept='.bin' required>";
+    html += "<button type='submit' class='btn' id='upload-btn'>Upload Firmware</button>";
+    html += "</form>";
+    html += "<div id='progress' style='display: none;'>";
+    html += "<div id='progress-bar'></div>";
+    html += "</div>";
+    html += "<div id='status'></div>";
+    html += "<button class='btn back-btn' onclick='window.close()'>Close Window</button>";
+    html += "</div>";
+    html += "<script>";
+    html += "document.getElementById('upload-form').addEventListener('submit', function(e) {";
+    html += "e.preventDefault();";
+    html += "const fileInput = document.getElementById('firmware-file');";
+    html += "const file = fileInput.files[0];";
+    html += "if (!file) { alert('Please select a firmware file'); return; }";
+    html += "if (!file.name.endsWith('.bin')) { alert('Please select a .bin file'); return; }";
+    html += "uploadFirmware(file);";
+    html += "});";
+    html += "function uploadFirmware(file) {";
+    html += "const formData = new FormData();";
+    html += "formData.append('firmware', file);";
+    html += "const xhr = new XMLHttpRequest();";
+    html += "document.getElementById('progress').style.display = 'block';";
+    html += "document.getElementById('upload-btn').disabled = true;";
+    html += "document.getElementById('upload-btn').textContent = 'Uploading...';";
+    html += "xhr.upload.addEventListener('progress', function(e) {";
+    html += "if (e.lengthComputable) {";
+    html += "const percent = (e.loaded / e.total) * 100;";
+    html += "document.getElementById('progress-bar').style.width = percent + '%';";
+    html += "document.getElementById('status').innerHTML = '<p>Uploading: ' + Math.round(percent) + '%</p>';";
+    html += "}";
+    html += "});";
+    html += "xhr.addEventListener('load', function() {";
+    html += "if (xhr.status === 200) {";
+    html += "document.getElementById('status').innerHTML = '<p style=\"color: green;\">✅ Upload successful! Device is rebooting...</p>';";
+    html += "setTimeout(() => { window.close(); }, 3000);";
+    html += "} else {";
+    html += "document.getElementById('status').innerHTML = '<p style=\"color: red;\">❌ Upload failed: ' + xhr.responseText + '</p>';";
+    html += "document.getElementById('upload-btn').disabled = false;";
+    html += "document.getElementById('upload-btn').textContent = 'Upload Firmware';";
+    html += "}";
+    html += "});";
+    html += "xhr.addEventListener('error', function() {";
+    html += "document.getElementById('status').innerHTML = '<p style=\"color: red;\">❌ Network error during upload</p>';";
+    html += "document.getElementById('upload-btn').disabled = false;";
+    html += "document.getElementById('upload-btn').textContent = 'Upload Firmware';";
+    html += "});";
+    html += "xhr.open('POST', '/update');";
+    html += "xhr.send(formData);";
+    html += "}";
+    html += "</script></body></html>";
+    
+    request->send(200, "text/html", html);
+}
+
+void WebServerManager::handleOTAUpload(AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final) {
+    if (!index) {
+        Serial.printf("OTA Update Start: %s\n", filename.c_str());
+        
+        // Set LED to firmware update mode (orange)
+        sensor_manager->setOTAUpdateMode(true);
+        
+        // Basic security validation
+        if (!filename.endsWith(".bin")) {
+            Serial.println("[SECURITY] Invalid file extension - only .bin files allowed");
+            sensor_manager->setOTAUpdateMode(false);
+            return;
+        }
+        
+        // Check available space
+        size_t free_space = ESP.getFreeSketchSpace();
+        Serial.printf("[SECURITY] Available space: %u bytes\n", free_space);
+        
+        if (free_space < 100000) { // Minimum 100KB required
+            Serial.println("[SECURITY] Insufficient free space for firmware update");
+            sensor_manager->setOTAUpdateMode(false);
+            return;
+        }
+        
+        // Start the update process
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+            Serial.printf("Update Begin Error: %s\n", Update.errorString());
+            sensor_manager->setOTAUpdateMode(false);
+            return;
+        }
+        
+        Serial.println("[OTA] Firmware update started - LED set to orange");
+    }
+    
+    // Write the received data
+    if (Update.write(data, len) != len) {
+        Serial.printf("Update Write Error: %s\n", Update.errorString());
+        sensor_manager->setOTAUpdateMode(false);
+        return;
+    }
+    
+    // Print progress
+    Serial.printf("OTA Progress: %u bytes\n", index + len);
+    
+    if (final) {
+        // Additional security validation before finalizing
+        size_t total_size = index + len;
+        Serial.printf("[SECURITY] Total firmware size: %u bytes\n", total_size);
+        
+        // Check minimum firmware size (reasonable firmware should be at least 200KB)
+        if (total_size < 200000) {
+            Serial.println("[SECURITY] Firmware too small - possible invalid file");
+            Update.abort();
+            sensor_manager->setOTAUpdateMode(false);
+            return;
+        }
+        
+        // Check maximum firmware size (prevent oversized uploads)
+        if (total_size > ESP.getFreeSketchSpace()) {
+            Serial.println("[SECURITY] Firmware too large for available space");
+            Update.abort();
+            sensor_manager->setOTAUpdateMode(false);
+            return;
+        }
+        
+        // Finalize the update
+        if (Update.end(true)) {
+            Serial.printf("[OTA] Update Success: %u bytes\n", total_size);
+            Serial.println("[OTA] Firmware validation passed - rebooting in 2 seconds");
+            
+            // Keep LED in update mode briefly to show success
+            delay(2000);
+            
+            // Reset LED before reboot
+            sensor_manager->setOTAUpdateMode(false);
+            
+            Serial.println("[OTA] Rebooting now...");
+        } else {
+            Serial.printf("[OTA] Update End Error: %s\n", Update.errorString());
+            Serial.println("[SECURITY] Firmware validation failed");
+            sensor_manager->setOTAUpdateMode(false);
+        }
+    }
+}

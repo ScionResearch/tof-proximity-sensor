@@ -1,20 +1,24 @@
 # ESP32-C6 Configurable Proximity Sensor
 
-A configurable proximity sensor system built with ESP32-C6, featuring real-time web-based monitoring and configuration.
+**Version 1.0.0** - A configurable proximity sensor system built with ESP32-C6, featuring real-time web-based monitoring, advanced adaptive filtering, and secure OTA firmware updates.
+
+[![Download Firmware](https://img.shields.io/badge/Download-Firmware%20v1.0.0-blue)](https://github.com/ScionResearch/tof-proximity-sensor/releases)
 
 ![Proximity Sensor Assembly](Images/ProximitySensorAssembly.png)
 
 ## Features
 
-### **Core Functionality**
+### **🎯 Core Functionality**
 
 - **VL53L1X ToF Sensor** - Accurate distance measurement up to 4 meters
-- **Moving Average Filtering** - 10-sample buffer for stable readings
+- **Advanced Adaptive Filtering** - Intelligent noise reduction with rapid adaptation to sustained changes
+- **Variance-Based Noise Detection** - Automatic detection and filtering of noisy environments
 - **Dual Configurable Outputs** - Independent range, hysteresis, and polarity control
 - **Smart Fault Detection** - Distinguishes genuine sensor faults from normal out-of-range conditions
-- **Automatic Recovery** - Self-healing sensor initialization
+- **Automatic Recovery** - Self-healing sensor initialization with enhanced reliability
+- **Rapid Response Fix** - Outputs properly reset when objects are quickly removed
 
-### **Web Interface**
+### **🌐 Web Interface**
 
 - **Real-time Monitoring** - 5Hz update rate for smooth feedback
 - **Live Configuration** - Adjust ranges, hysteresis, and polarity without reprogramming
@@ -24,12 +28,25 @@ A configurable proximity sensor system built with ESP32-C6, featuring real-time 
 - **Mobile-Optimized Design** - Clean, touch-friendly interface for smartphones
 - **iOS Compatibility** - Enhanced captive portal support for reliable iPhone/iPad access
 
-### **Hardware Integration**
+### **🔄 Over-The-Air (OTA) Updates**
 
-- **WS2812 RGB LED** - Visual status indication (Green/Blue/Red)
+- **Secure Firmware Updates** - Upload new firmware directly through web interface
+- **Multi-Layer Security** - File validation, size checks, and integrity verification
+- **Visual Feedback** - Orange LED indication during firmware update process
+- **Progress Monitoring** - Real-time upload progress with detailed status messages
+- **Safe Recovery** - Automatic rollback on failed updates with device protection
+
+### **🔧 Hardware Integration**
+
+- **WS2812 RGB LED** - Enhanced visual status indication:
+  - **Green**: Normal operation (pulsing effect)
+  - **Blue**: Triggered state
+  - **Red**: Sensor fault or error
+  - **Orange**: Firmware update in progress
 - **Two Digital Outputs** - Configurable trigger logic with hysteresis
 - **Persistent Storage** - Configuration saved to LittleFS flash memory
-- **Unique WiFi SSID** - MAC-based identifier for multi-sensor deployments
+- **Unique WiFi SSID** - MAC-based identifier for multi-sensor deployments (fixed in v1.0.0)
+- **Enhanced Diagnostics** - Comprehensive serial logging for troubleshooting
 
 ## Hardware Requirements
 
@@ -84,8 +101,10 @@ A configurable proximity sensor system built with ESP32-C6, featuring real-time 
 ### **Sensor Configuration**
 
 - **Timing Budget:** 50ms
-- **Moving Average:** 10 samples
+- **Adaptive Filtering:** Intelligent noise reduction with rapid adaptation
+- **Variance Threshold:** Automatic noise detection and filtering
 - **Update Rate:** 5Hz web interface refresh
+- **Change Detection:** Sustained change detection for rapid adaptation
 
 ### **Output Defaults**
 
@@ -265,6 +284,91 @@ lib_deps =
 - Automatic door control
 - Parking space monitoring
 - Energy management triggers
+
+## Changelog
+
+### **Version 1.0.0** - *August 2025*
+
+#### 🚀 **Major Features**
+
+- **Over-The-Air (OTA) Firmware Updates**
+  - Secure web-based firmware upload interface
+  - Multi-layer security validation (file type, size, integrity)
+  - Visual feedback with orange LED during updates
+  - Real-time progress monitoring
+  - Automatic rollback on failed updates
+
+- **Advanced Adaptive Filtering System**
+  - Replaced simple moving average with intelligent adaptive filter
+  - Variance-based noise detection and filtering
+  - Rapid adaptation to sustained changes while filtering noise
+  - Configurable thresholds for different environments
+  - Enhanced signal quality assessment
+
+#### 🔧 **Improvements**
+
+- **Fixed SSID Uniqueness Issue**
+  - Resolved static MAC address problem in WiFi AP mode
+  - Each device now generates truly unique SSID based on hardware MAC
+  - Proper WiFi initialization sequence ensures correct MAC retrieval
+
+- **Enhanced Output Trigger Logic**
+  - Fixed output lock-up when objects are quickly removed
+  - Outputs now properly reset when sensor goes out of range
+  - Improved hysteresis handling for rapid distance changes
+  - Added comprehensive debug logging for troubleshooting
+
+- **LED Status Enhancements**
+  - Added orange LED indication during firmware updates
+  - Enhanced pulsing effects for normal operation
+  - Improved visual feedback for all system states
+
+#### 🛡️ **Security & Reliability**
+
+- **Firmware Validation**
+  - File extension validation (only .bin files accepted)
+  - Size validation (minimum/maximum limits)
+  - Free space verification before update
+  - ESP32 built-in checksum verification
+
+- **Enhanced Error Handling**
+  - Improved sensor fault detection and recovery
+  - Better distinction between genuine faults and out-of-range conditions
+  - Automatic sensor reinitialization on communication errors
+
+#### 📱 **Web Interface Updates**
+
+- **OTA Update Section**
+  - Dedicated firmware update interface
+  - Current version and build date display
+  - Security warnings and user guidance
+  - Progress indicators and status messages
+
+- **Enhanced Diagnostics**
+  - Real-time variance and noise level display
+  - Adaptive filter status indicators
+  - Comprehensive system information
+
+#### 🔧 **Technical Improvements**
+
+- **Code Organization**
+  - Modular filter classes (NoiseFilter, AdaptiveFilter)
+  - Improved separation of concerns
+  - Enhanced maintainability and extensibility
+
+- **Performance Optimizations**
+  - Reduced memory usage in filtering algorithms
+  - Optimized sensor reading processing
+  - Improved web interface responsiveness
+
+#### 📋 **Configuration**
+
+- **Version Information**
+  - Added FW_VERSION constant (1.0.0)
+  - Version display in web interface
+  - Build date tracking
+
+---
 
 ## License
 
