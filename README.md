@@ -1,8 +1,8 @@
 # ESP32-C6 Configurable Proximity Sensor
 
-**Version 1.0.0** - A configurable proximity sensor system built with ESP32-C6, featuring real-time web-based monitoring, advanced adaptive filtering, and secure OTA firmware updates.
+**Version 1.0.1** - A configurable proximity sensor system built with ESP32-C6, featuring real-time web-based monitoring, advanced adaptive filtering, and secure OTA firmware updates.
 
-[![Download Firmware](https://img.shields.io/badge/Download-Firmware%20v1.0.0-blue)](https://github.com/ScionResearch/tof-proximity-sensor/releases)
+[![Download Firmware](https://img.shields.io/badge/Download-Firmware%20v1.0.1-blue)](https://github.com/ScionResearch/tof-proximity-sensor/releases)
 
 ![Proximity Sensor Assembly](Images/ProximitySensorAssembly.png)
 
@@ -97,6 +97,42 @@
 
 - **Default Admin Password:** `admin`
 - **Important:** Change the default password after first login!
+
+## Changelog
+
+### **Version 1.0.1** (Latest)
+
+#### 🔧 **Bug Fixes**
+- **Fixed Output Trigger Logic**: Outputs configured as "Active out of range" now properly trigger when sensor readings exceed maximum detection range
+- **Improved Out-of-Range Handling**: Enhanced logic for handling sensor readings beyond physical detection limits
+
+#### 📱 **Mobile Enhancements**
+- **Smart Firmware Update Restriction**: Firmware update panel automatically hidden on smartphones to ensure updates are only performed from PCs
+- **Mobile Device Detection**: JavaScript-based user agent detection prevents accidental firmware updates from mobile devices
+- **Enhanced Mobile Layout**: Improved responsive design for better mobile user experience
+
+#### 🎨 **UI/UX Improvements**
+- **Professional Layout**: Implemented CSS Grid layout for perfect form field alignment across all sections
+- **Consistent Status Cards**: Fixed status card height inconsistencies for better visual alignment
+- **Responsive Design**: Enhanced mobile breakpoint handling with single-column layout on small screens
+- **Visual Consistency**: Improved spacing, padding, and visual hierarchy throughout the interface
+
+#### 🏢 **Branding**
+- **Company Logo Integration**: Embedded BSI logo in header with professional dark background styling
+- **Responsive Logo Sizing**: Logo scales appropriately across desktop and mobile devices
+- **Enhanced Visual Identity**: Improved page aesthetics with proper logo placement and contrast
+
+#### 🔧 **Technical Improvements**
+- **Base64 Logo Embedding**: Optimized logo delivery with embedded encoding for faster loading
+- **Improved CSS Architecture**: Better organized stylesheets with consistent naming conventions
+- **Enhanced JavaScript**: More robust mobile detection and UI interaction handling
+
+### **Version 1.0.0**
+- Initial release with core proximity sensor functionality
+- Web-based configuration interface
+- OTA firmware update capability
+- Advanced adaptive filtering
+- Dual configurable outputs
 
 ### **Sensor Configuration**
 

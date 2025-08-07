@@ -5,7 +5,7 @@
 #include <Adafruit_VL53L1X.h>
 
 // Version string
-#define FW_VERSION              "1.0.0"
+#define FW_VERSION              "1.0.1"
 
 // Hardware pin definitions
 #define PIN_LED_DATA            0   // LED data pin on ESP32-C6-Mini DevKit is 8, on ToF sensor board is 0

@@ -699,7 +699,16 @@ void SensorManager::updateOutputs() {
 }
 
 bool SensorManager::checkOutputTrigger(const OutputConfig& config, int16_t distance) {
-    if (distance < 0) return false; // Invalid reading
+    // Handle out-of-range condition (distance < 0)
+    if (distance < 0) {
+        // If sensor is out of range and output is configured as "Active out of range",
+        // it should trigger (since being out of sensor range means out of configured range)
+        if (!config.active_in_range) {
+            return true;  // Trigger for "Active out of range" outputs
+        } else {
+            return false; // Don't trigger for "Active in range" outputs
+        }
+    }
     
     bool in_range = (distance >= config.range_min && distance <= config.range_max);
     
